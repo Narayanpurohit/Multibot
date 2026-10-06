@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import random
 
@@ -63,7 +64,7 @@ def setup(userbot: Client, userbots: list[Client] | None = None):
                 delay,
                 user_id,
             )
-            await __import__("asyncio").sleep(delay)
+            await asyncio.sleep(delay)
 
             # Check pending.json only after the delay.
             if is_user_pending(user_id):
