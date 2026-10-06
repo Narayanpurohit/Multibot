@@ -1,4 +1,5 @@
 import logging
+import random
 
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -13,8 +14,13 @@ def setup(userbot: Client, userbots: list[Client] | None = None):
     """
     Register the A_Chat message handler on a userbot.
 
-    New human users are added to pending.json before the initial
-    newsletter/permission message is sent.
+    Flow:
+    1. Ignore bot accounts.
+    2. Resolve the user's peer.
+    3. Wait a random 5-50 seconds.
+    4. Check pending.json.
+    5. If the user is new, save the ID to pending.json.
+    6. Run the newsletter/permission-message function.
     """
     if userbots is None:
         userbots = [userbot]
@@ -24,7 +30,6 @@ def setup(userbot: Client, userbots: list[Client] | None = None):
         try:
             user = message.from_user
 
-            # Ignore messages without a normal user sender.
             if not user:
                 return
 
@@ -35,20 +40,49 @@ def setup(userbot: Client, userbots: list[Client] | None = None):
 
             user_id = int(user.id)
 
-            # Ignore users that have already been processed.
-            if is_user_pending(user_id):
+            # Resolve the user's peer before applying the delay.
+            try:
+                peer = await client.resolve_peer(user_id)
+            except Exception:
+                logger.exception(
+                    "Failed to resolve peer for user_id=%s",
+                    user_id,
+                )
                 return
 
-            # Mark the user as processed before sending the initial message.
+            logger.info(
+                "Peer resolved for user_id=%s: %s",
+                user_id,
+                type(peer).__name__,
+            )
+
+            # Random delay between 5 and 50 seconds.
+            delay = random.uniform(5, 50)
+            logger.info(
+                "Waiting %.2f seconds before pending check for user_id=%s",
+                delay,
+                user_id,
+            )
+            await __import__("asyncio").sleep(delay)
+
+            # Check pending.json only after the delay.
+            if is_user_pending(user_id):
+                logger.info(
+                    "User already pending after delay: user_id=%s",
+                    user_id,
+                )
+                return
+
+            # Save only new users.
             if not add_pending_user(user_id):
                 return
 
             logger.info(
-                "New human user detected: user_id=%s",
+                "New human user saved to pending.json: user_id=%s",
                 user_id,
             )
 
-            # Send the configured permission/newsletter message.
+            # Run the initial newsletter/permission-message function.
             await send_random_newsletter(user_id, userbots)
 
         except Exception:
