@@ -77,6 +77,10 @@ async def main():
                 logger.exception("Failed to start userbot account %d.", index)
                 raise
 
+        from userbot.userbot import setup_all
+
+        setup_all(userbots)
+
         logger.info("All clients started. Userbots: %d", len(userbots))
 
         await idle()
