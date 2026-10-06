@@ -3,7 +3,7 @@ import importlib
 import logging
 import os
 
-from pyrogram import Client, idle
+from telethon import TelegramClient
 
 from config import API_ID, API_HASH, BOT_TOKEN, USERBOT_ACCOUNTS
 
@@ -23,7 +23,8 @@ PLUGIN_MODULES = [
 ]
 
 
-def load_plugins(bot: Client):
+def load_plugins(bot: TelegramClient):
+    """Load and initialize bot plugins."""
     for module_name in PLUGIN_MODULES:
         try:
             module = importlib.import_module(module_name)
@@ -34,56 +35,69 @@ def load_plugins(bot: Client):
                 logger.info("Loaded plugin: %s", module_name)
             else:
                 logger.warning("No setup() found in plugin: %s", module_name)
+
         except Exception:
             logger.exception("Failed to load plugin: %s", module_name)
             raise
 
 
-def create_userbot(account: str) -> Client:
-    return Client(
-        name=account,
-        api_id=API_ID,
-        api_hash=API_HASH,
-        workdir="sessions",
+def create_userbot(account: str) -> TelegramClient:
+    """Create a Telethon client for a configured user account."""
+    return TelegramClient(
+        os.path.join("sessions", account),
+        API_ID,
+        API_HASH,
     )
 
 
 async def main():
     os.makedirs("sessions", exist_ok=True)
 
-    bot = Client(
-        "bot",
-        api_id=API_ID,
-        api_hash=API_HASH,
-        bot_token=BOT_TOKEN,
+    # Main Telegram bot.
+    bot = TelegramClient(
+        os.path.join("sessions", "bot"),
+        API_ID,
+        API_HASH,
     )
 
-    load_plugins(bot)
-
+    # Userbot accounts.
     userbots = [
         create_userbot(account)
         for account in USERBOT_ACCOUNTS
     ]
 
     try:
-        await bot.start()
+        # Start bot using the configured bot token.
+        await bot.start(bot_token=BOT_TOKEN)
         logger.info("Bot started successfully.")
 
+        # Start all userbot accounts.
         for index, userbot in enumerate(userbots, start=1):
             try:
                 await userbot.start()
                 logger.info("Userbot account %d started.", index)
             except Exception:
-                logger.exception("Failed to start userbot account %d.", index)
+                logger.exception(
+                    "Failed to start userbot account %d.",
+                    index,
+                )
                 raise
 
+        # Register bot plugins.
+        load_plugins(bot)
+
+        # Register userbot handlers.
         from userbot.userbot import setup_all
 
         setup_all(userbots)
 
-        logger.info("All clients started. Userbots: %d", len(userbots))
+        logger.info(
+            "All clients started. Userbots: %d",
+            len(userbots),
+        )
 
-        await idle()
+        # Keep all Telethon clients running.
+        await asyncio.Event().wait()
 
     except Exception:
         logger.exception("Fatal error while running Multibot.")
@@ -92,15 +106,21 @@ async def main():
     finally:
         for index, userbot in enumerate(userbots, start=1):
             try:
-                if userbot.is_connected:
-                    await userbot.stop()
-                    logger.info("Userbot account %d stopped.", index)
+                if userbot.is_connected():
+                    await userbot.disconnect()
+                    logger.info(
+                        "Userbot account %d stopped.",
+                        index,
+                    )
             except Exception:
-                logger.exception("Error stopping userbot account %d.", index)
+                logger.exception(
+                    "Error stopping userbot account %d.",
+                    index,
+                )
 
         try:
-            if bot.is_connected:
-                await bot.stop()
+            if bot.is_connected():
+                await bot.disconnect()
                 logger.info("Bot stopped.")
         except Exception:
             logger.exception("Error stopping bot.")
