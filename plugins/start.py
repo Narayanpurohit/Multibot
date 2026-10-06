@@ -1,29 +1,26 @@
 import logging
 
-from pyrogram import filters
-from pyrogram.types import Message
-
+from telethon import events
 
 logger = logging.getLogger(__name__)
 
 
 def setup(bot):
-    @bot.on_message(filters.command("start"))
-    async def start_command(client, message: Message):
+    """Register the /start command handler."""
+
+    @bot.on(events.NewMessage(pattern=r"^/start(?:\s+.*)?$"))
+    async def start_command(event):
         try:
-            user = message.from_user
-            name = user.first_name if user else "there"
+            sender = await event.get_sender()
+            name = getattr(sender, "first_name", None) or "there"
+            user_id = getattr(sender, "id", "unknown")
 
-            logger.info(
-                "/start received from user_id=%s",
-                user.id if user else "unknown",
-            )
+            logger.info("/start received from user_id=%s", user_id)
 
-            await message.reply_text(
+            await event.respond(
                 f"Hello {name}! 👋\n"
                 "Bot is online and ready."
             )
 
         except Exception:
             logger.exception("Error handling /start command.")
-            raise
