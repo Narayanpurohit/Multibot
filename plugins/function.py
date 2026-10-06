@@ -30,7 +30,7 @@ def create_json_file(file_path: str, default_data: Any = None) -> None:
 
 
 def load_json(file_path: str, default_data: Any = None) -> Any:
-    """Load JSON data. Creates the file when it does not exist."""
+    """Load a JSON file and create it when missing."""
     if default_data is None:
         default_data = []
 
@@ -69,13 +69,16 @@ def get_pending_users() -> list[int]:
         try:
             users.append(int(user_id))
         except (TypeError, ValueError):
-            logger.warning("Ignoring invalid user ID in pending.json: %r", user_id)
+            logger.warning(
+                "Ignoring invalid user ID in pending.json: %r",
+                user_id,
+            )
 
     return users
 
 
 def is_user_pending(user_id: int) -> bool:
-    """Check whether a user ID already exists in pending.json."""
+    """Check whether a user ID exists in pending.json."""
     return int(user_id) in get_pending_users()
 
 
@@ -92,7 +95,7 @@ def add_pending_user(user_id: int) -> bool:
 
 
 def remove_pending_user(user_id: int) -> bool:
-    """Remove a user ID from pending.json if present."""
+    """Remove a user ID from pending.json if it is present."""
     user_id = int(user_id)
     users = get_pending_users()
 
@@ -109,10 +112,11 @@ def pending_user_count() -> int:
 
 
 async def send_random_newsletter(user_id: int, userbots: list) -> bool:
-    """Send a random configured newsletter message using a random userbot.
+    """Send the initial permission/newsletter message using a userbot.
 
-    Use this only for users who have explicitly opted in to the newsletter.
-    This function does not retry or rotate accounts to bypass Telegram limits.
+    A random configured account and random configured newsletter message
+    are selected. No retry or account rotation is performed to bypass
+    Telegram limits.
     """
     if not userbots:
         logger.warning("No userbots are available for newsletter delivery.")
@@ -123,8 +127,8 @@ async def send_random_newsletter(user_id: int, userbots: list) -> bool:
 
     try:
         await userbot.send_message(
-            chat_id=int(user_id),
-            text=message,
+            int(user_id),
+            message,
         )
 
         logger.info(
@@ -142,6 +146,6 @@ async def send_random_newsletter(user_id: int, userbots: list) -> bool:
 
 
 def setup(bot):
-    """Plugin entry point. Utility functions are imported where needed."""
+    """Initialize function utilities."""
     create_json_file(PENDING_FILE, [])
     logger.info("Function utilities initialized.")
