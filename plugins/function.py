@@ -1,13 +1,18 @@
 import json
 import logging
 import os
+import random
 from typing import Any
+
+from config import NS1, NS2, NS3, NS4
 
 
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PENDING_FILE = os.path.join(BASE_DIR, "pending.json")
+
+NEWSLETTER_MESSAGES = [NS1, NS2, NS3, NS4]
 
 
 def create_json_file(file_path: str, default_data: Any = None) -> None:
@@ -101,6 +106,39 @@ def remove_pending_user(user_id: int) -> bool:
 def pending_user_count() -> int:
     """Return the number of pending users."""
     return len(get_pending_users())
+
+
+async def send_random_newsletter(user_id: int, userbots: list) -> bool:
+    """Send a random configured newsletter message using a random userbot.
+
+    Use this only for users who have explicitly opted in to the newsletter.
+    This function does not retry or rotate accounts to bypass Telegram limits.
+    """
+    if not userbots:
+        logger.warning("No userbots are available for newsletter delivery.")
+        return False
+
+    userbot = random.choice(userbots)
+    message = random.choice(NEWSLETTER_MESSAGES)
+
+    try:
+        await userbot.send_message(
+            chat_id=int(user_id),
+            text=message,
+        )
+
+        logger.info(
+            "Newsletter sent to user_id=%s using selected userbot.",
+            user_id,
+        )
+        return True
+
+    except Exception:
+        logger.exception(
+            "Failed to send newsletter to user_id=%s.",
+            user_id,
+        )
+        return False
 
 
 def setup(bot):
