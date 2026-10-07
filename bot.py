@@ -16,10 +16,12 @@ logging.basicConfig(
 logger = logging.getLogger("multibot")
 
 
+# Plugins currently available in the half-code build.
+# Broadcast will be added later.
 PLUGIN_MODULES = [
     "plugins.start",
     "plugins.function",
-    "plugins.broadcast",
+    "plugins.stats",
 ]
 
 
