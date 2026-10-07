@@ -18,6 +18,14 @@ OWNER_ID = int(os.getenv("OWNER_ID", "0"))
 # Default Chat
 CHAT_ID = int(os.getenv("CHAT_ID", "0"))
 
+# Groups where the userbot should process incoming messages.
+# .env example: A_CHAT_ID=-1001234567890,-1009876543210
+A_CHAT_ID = [
+    int(chat_id.strip())
+    for chat_id in os.getenv("A_CHAT_ID", "").split(",")
+    if chat_id.strip()
+]
+
 # Userbot Session Strings
 # Keep real session strings only in .env, never in this public file.
 USERBOT_SESSIONS = [
