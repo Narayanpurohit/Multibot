@@ -90,6 +90,10 @@ async def main():
 
         load_plugins(bot)
 
+        from plugins.broadcast import setup as setup_broadcast
+        setup_broadcast(bot, userbots)
+        logger.info("Loaded plugin: plugins.broadcast")
+
         from userbot.userbot import setup_all
 
         setup_all(userbots)
