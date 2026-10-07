@@ -13,6 +13,10 @@ from plugins.function import (
 
 logger = logging.getLogger(__name__)
 
+# Protect the pending check + add operation from duplicate processing
+# when multiple messages from the same/new users arrive together.
+pending_lock = asyncio.Lock()
+
 
 def setup(
     userbot: TelegramClient,
@@ -80,17 +84,22 @@ def setup(
 
             await asyncio.sleep(delay)
 
-            # Check pending.json only after the delay.
-            if is_user_pending(user_id):
-                logger.info(
-                    "User already pending after delay: user_id=%s",
-                    user_id,
-                )
-                return
+            # Only the pending check + add operation is locked.
+            # The network send happens outside the lock.
+            async with pending_lock:
+                if is_user_pending(user_id):
+                    logger.info(
+                        "User already pending after delay: user_id=%s",
+                        user_id,
+                    )
+                    return
 
-            # Save only new users.
-            if not add_pending_user(user_id):
-                return
+                if not add_pending_user(user_id):
+                    logger.info(
+                        "User was already added to pending.json: user_id=%s",
+                        user_id,
+                    )
+                    return
 
             logger.info(
                 "New human user saved to pending.json: user_id=%s",
@@ -106,6 +115,10 @@ def setup(
 
 def setup_all(userbots: list[TelegramClient]):
     """Register the handler on every configured userbot account."""
+    if not userbots:
+        logger.warning("No userbot accounts are configured.")
+        return
+
     for userbot in userbots:
         setup(userbot, userbots)
         logger.info("Userbot message handler loaded.")
