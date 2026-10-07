@@ -23,7 +23,6 @@ CHAT_ID = int(os.getenv("CHAT_ID", "0"))
 USERBOT_SESSIONS = [
     os.getenv("USERBOT_SESSION_1", ""),
     os.getenv("USERBOT_SESSION_2", ""),
-    os.getenv("USERBOT_SESSION_3", ""),
 ]
 
 # Newsletter Messages
