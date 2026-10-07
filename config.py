@@ -18,10 +18,12 @@ OWNER_ID = int(os.getenv("OWNER_ID", "0"))
 # Default Chat
 CHAT_ID = int(os.getenv("CHAT_ID", "0"))
 
-# Userbot Accounts
-USERBOT_ACCOUNTS = [
-    "userbot1",
-    "userbot2",
+# Userbot Session Strings
+# Keep real session strings only in .env, never in this public file.
+USERBOT_SESSIONS = [
+    os.getenv("USERBOT_SESSION_1", ""),
+    os.getenv("USERBOT_SESSION_2", ""),
+    os.getenv("USERBOT_SESSION_3", ""),
 ]
 
 # Newsletter Messages
