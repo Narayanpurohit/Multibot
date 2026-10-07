@@ -41,7 +41,7 @@ def setup(
         userbots = [userbot]
 
 
-    @userbot.on(events.NewMessage(incoming=True, pattern=r"^/(subscribe|stop)(?:@\\w+)?$"))
+    @userbot.on(events.NewMessage(incoming=True, pattern=r"^/(subscribe|stop)(?:@\w+)?$"))
     async def subscription_command(event):
         try:
             if not event.is_private:
