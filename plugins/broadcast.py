@@ -19,19 +19,23 @@ def setup(bot: TelegramClient, userbots: list[TelegramClient] | None = None):
     async def broadcast_command(event):
         try:
             if not event.is_reply:
-                await event.respond("❌ /broadcast ko kisi message ke reply mein bhejo.")
+                await event.respond(
+                    "❌ /broadcast ko kisi message ke reply mein bhejo."
+                )
                 return
 
             reply = await event.get_reply_message()
             users = get_users()
 
             if not users:
-                await event.respond("ℹ️ users.json mein koi subscribed user nahi hai.")
+                await event.respond(
+                    "ℹ️ users.json mein koi subscribed user nahi hai."
+                )
                 return
 
             await event.respond(
-                f"📢 Broadcast started.
-👥 Recipients: {len(users)}"
+                f"📢 Broadcast started.\n"
+                f"👥 Recipients: {len(users)}"
             )
 
             sent = 0
@@ -44,10 +48,7 @@ def setup(bot: TelegramClient, userbots: list[TelegramClient] | None = None):
 
                 try:
                     userbot = random.choice(userbots)
-                    await userbot.send_message(
-                        int(user_id),
-                        reply,
-                    )
+                    await userbot.send_message(int(user_id), reply)
                     sent += 1
                 except Exception:
                     failed += 1
