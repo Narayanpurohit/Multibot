@@ -20,9 +20,8 @@ CHAT_ID = int(os.getenv("CHAT_ID", "0"))
 
 # Userbot Accounts
 USERBOT_ACCOUNTS = [
-    account.strip()
-    for account in os.getenv("USERBOT_ACCOUNTS", "").split(",")
-    if account.strip()
+    "userbot1",
+    "userbot2",
 ]
 
 # Newsletter Messages
