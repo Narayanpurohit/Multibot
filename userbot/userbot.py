@@ -4,6 +4,8 @@ import random
 
 from telethon import TelegramClient, events
 
+from config import A_CHAT_ID
+
 from plugins.function import (
     add_pending_user,
     is_user_pending,
@@ -23,7 +25,7 @@ def setup(
     userbots: list[TelegramClient] | None = None,
 ):
     """
-    Register the incoming private-message handler.
+    Register the incoming group-message handler.
 
     Flow:
     1. Ignore Telegram bot accounts.
@@ -37,9 +39,12 @@ def setup(
         userbots = [userbot]
 
     @userbot.on(events.NewMessage(incoming=True))
-    async def incoming_private_message(event):
+    async def incoming_group_message(event):
         try:
-            if not event.is_private:
+            if not event.is_group:
+                return
+
+            if event.chat_id not in A_CHAT_ID:
                 return
 
             sender = await event.get_sender()
@@ -110,7 +115,7 @@ def setup(
             await send_random_newsletter(user_id, userbots)
 
         except Exception:
-            logger.exception("Error handling incoming userbot message.")
+            logger.exception("Error handling incoming group message.")
 
 
 def setup_all(userbots: list[TelegramClient]):
@@ -119,6 +124,9 @@ def setup_all(userbots: list[TelegramClient]):
         logger.warning("No userbot accounts are configured.")
         return
 
+    if not A_CHAT_ID:
+        logger.warning("A_CHAT_ID is empty. No group messages will be processed.")
+
     for userbot in userbots:
         setup(userbot, userbots)
-        logger.info("Userbot message handler loaded.")
+        logger.info("Userbot group-message handler loaded.")
