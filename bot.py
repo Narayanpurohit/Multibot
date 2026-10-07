@@ -4,8 +4,9 @@ import logging
 import os
 
 from telethon import TelegramClient
+from telethon.sessions import StringSession
 
-from config import API_ID, API_HASH, BOT_TOKEN, USERBOT_ACCOUNTS
+from config import API_ID, API_HASH, BOT_TOKEN, USERBOT_SESSIONS
 
 
 logging.basicConfig(
@@ -43,18 +44,16 @@ def load_plugins(bot: TelegramClient):
             raise
 
 
-def create_userbot(account: str) -> TelegramClient:
-    """Create a Telethon client for a configured user account."""
+def create_userbot(session_string: str) -> TelegramClient:
+    """Create a Telethon client from a StringSession."""
     return TelegramClient(
-        os.path.join("sessions", account),
+        StringSession(session_string),
         API_ID,
         API_HASH,
     )
 
 
 async def main():
-    os.makedirs("sessions", exist_ok=True)
-
     # Main Telegram bot.
     bot = TelegramClient(
         os.path.join("sessions", "bot"),
@@ -62,18 +61,22 @@ async def main():
         API_HASH,
     )
 
-    # Userbot accounts.
+    # Userbot accounts from .env session strings.
+    session_strings = [
+        session
+        for session in USERBOT_SESSIONS
+        if session.strip()
+    ]
+
     userbots = [
-        create_userbot(account)
-        for account in USERBOT_ACCOUNTS
+        create_userbot(session)
+        for session in session_strings
     ]
 
     try:
-        # Start bot using the configured bot token.
         await bot.start(bot_token=BOT_TOKEN)
         logger.info("Bot started successfully.")
 
-        # Start all userbot accounts.
         for index, userbot in enumerate(userbots, start=1):
             try:
                 await userbot.start()
@@ -85,10 +88,8 @@ async def main():
                 )
                 raise
 
-        # Register bot plugins.
         load_plugins(bot)
 
-        # Register userbot handlers.
         from userbot.userbot import setup_all
 
         setup_all(userbots)
@@ -98,7 +99,6 @@ async def main():
             len(userbots),
         )
 
-        # Keep all Telethon clients running.
         await asyncio.Event().wait()
 
     except Exception:
