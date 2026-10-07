@@ -10,6 +10,8 @@ from plugins.function import (
     add_pending_user,
     is_user_pending,
     send_random_newsletter,
+    add_user,
+    remove_user,
 )
 
 
@@ -37,6 +39,35 @@ def setup(
     """
     if userbots is None:
         userbots = [userbot]
+
+
+    @userbot.on(events.NewMessage(incoming=True, pattern=r"^/(subscribe|stop)(?:@\\w+)?$"))
+    async def subscription_command(event):
+        try:
+            if not event.is_private:
+                return
+            sender = await event.get_sender()
+            if not sender or getattr(sender, "bot", False):
+                return
+            user_id = int(sender.id)
+            command = event.pattern_match.group(1).lower()
+
+            if command == "subscribe":
+                added = add_user(user_id)
+                await event.respond(
+                    "✅ You are subscribed to the newsletter."
+                    if added else
+                    "ℹ️ You are already subscribed."
+                )
+            else:
+                removed = remove_user(user_id)
+                await event.respond(
+                    "🛑 You have been unsubscribed."
+                    if removed else
+                    "ℹ️ You are not subscribed."
+                )
+        except Exception:
+            logger.exception("Error handling subscription command.")
 
     @userbot.on(events.NewMessage(incoming=True))
     async def incoming_group_message(event):
