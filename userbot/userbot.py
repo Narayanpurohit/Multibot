@@ -1,28 +1,19 @@
-import asyncio
 import logging
-import random
 
 from telethon import TelegramClient, events
 
 from config import A_CHAT_ID
-
 from plugins.function import (
-    add_pending_user,
-    get_userbot_indexes,
+    add_user,
     is_user_pending,
     mark_userbot_for_user,
     notify_owner,
-    remove_pending_user,
-    send_random_newsletter,
-    add_user,
+    process_permission_message,
     remove_user,
+    save_resolved_peer,
 )
 
-
 logger = logging.getLogger(__name__)
-
-# Protect the pending check + add operation from duplicate processing.
-pending_lock = asyncio.Lock()
 
 
 def setup(
@@ -30,7 +21,7 @@ def setup(
     userbots: list[TelegramClient] | None = None,
     userbot_index: int = 1,
 ):
-    """Register handlers for one userbot account."""
+    """Register incoming-group and subscription handlers for one userbot."""
     if userbots is None:
         userbots = [userbot]
 
@@ -42,34 +33,28 @@ def setup(
         try:
             if not event.is_private:
                 return
-
             sender = await event.get_sender()
             if not sender or getattr(sender, "bot", False):
                 return
 
             user_id = int(sender.id)
             command = event.pattern_match.group(1).lower()
-
             if command == "subscribe":
                 added = add_user(user_id)
                 await event.respond(
-                    "✅ You are subscribed to the newsletter."
-                    if added
-                    else
-                    "ℹ️ You are already subscribed."
+                    "✅ You are subscribed."
+                    if added else "ℹ️ You are already subscribed."
                 )
             else:
                 removed = remove_user(user_id)
                 await event.respond(
                     "🛑 You have been unsubscribed."
-                    if removed
-                    else
-                    "ℹ️ You are not subscribed."
+                    if removed else "ℹ️ You are not subscribed."
                 )
         except Exception as error:
             logger.exception("Error handling subscription command.")
             await notify_owner(
-                f"❌ Subscription handler error\\n"
+                f"❌ Subscription handler error\n"
                 f"Error: {type(error).__name__}: {error}",
                 userbots,
             )
@@ -77,109 +62,43 @@ def setup(
     @userbot.on(events.NewMessage(incoming=True))
     async def incoming_group_message(event):
         try:
-            if not event.is_group:
-                return
-
-            if event.chat_id not in A_CHAT_ID:
+            if not event.is_group or event.chat_id not in A_CHAT_ID:
                 return
 
             sender = await event.get_sender()
-
-            if not sender:
-                return
-
-            if getattr(sender, "bot", False):
-                logger.info(
-                    "Ignoring bot sender: user_id=%s",
-                    getattr(sender, "id", "unknown"),
-                )
+            if not sender or getattr(sender, "bot", False):
                 return
 
             user_id = int(sender.id)
-
-            # Keep the input entity from the account that actually
-            # received the group message.
             try:
-                await event.get_input_sender()
+                input_peer = await event.get_input_sender()
+                if input_peer is None:
+                    raise ValueError("Telegram did not return an input peer")
+                if not save_resolved_peer(user_id, userbot_index, input_peer):
+                    raise ValueError("Could not persist the resolved input peer")
+                mark_userbot_for_user(user_id, userbot_index)
             except Exception as error:
-                logger.exception(
-                    "Failed to resolve input sender for user_id=%s",
-                    user_id,
-                )
+                logger.exception("Failed to resolve/save peer for user_id=%s", user_id)
                 await notify_owner(
-                    f"❌ Peer/entity error\\n"
-                    f"User ID: {user_id}\\n"
-                    f"Userbot: {userbot_index}\\n"
+                    f"❌ Peer/entity error\nUser ID: {user_id}\n"
+                    f"Userbot: {userbot_index}\n"
                     f"Error: {type(error).__name__}: {error}",
                     userbots,
                 )
                 return
 
-            # Mark this account as an account that has encountered the user.
-            mark_userbot_for_user(user_id, userbot_index)
+            # pending.json tracks users already sent a permission prompt.
+            if is_user_pending(user_id):
+                return
 
-            logger.info(
-                "Marked userbot %d for user_id=%s",
-                userbot_index,
-                user_id,
-            )
-
-            delay = random.uniform(5, 50)
-
-            logger.info(
-                "Waiting %.2f seconds before pending check for user_id=%s",
-                delay,
-                user_id,
-            )
-
-            await asyncio.sleep(delay)
-
-            async with pending_lock:
-                if is_user_pending(user_id):
-                    logger.info(
-                        "User already pending after delay: user_id=%s",
-                        user_id,
-                    )
-                    return
-
-                if not add_pending_user(user_id):
-                    logger.info(
-                        "User was already added to pending.json: user_id=%s",
-                        user_id,
-                    )
-                    return
-
-            logger.info(
-                "New human user saved to pending.json: user_id=%s",
-                user_id,
-            )
-
-            marked_indexes = get_userbot_indexes(user_id)
-            marked_userbots = [
-                userbots[index - 1]
-                for index in marked_indexes
-                if 1 <= index <= len(userbots)
-            ]
-
-            # Only accounts marked for this user are passed to the
-            # newsletter function.
-            sent = await send_random_newsletter(
-                user_id,
-                marked_userbots,
-                userbots,
-            )
-
-            if not sent:
-                # If the newsletter was not sent, allow a later group
-                # message to retry instead of leaving the user stuck.
-                remove_pending_user(user_id)
+            await process_permission_message(user_id, userbots)
 
         except Exception as error:
             logger.exception("Error handling incoming group message.")
             await notify_owner(
-                f"❌ Group handler error\\n"
-                f"User ID: {locals().get('user_id', 'unknown')}\\n"
-                f"Userbot: {userbot_index}\\n"
+                f"❌ Group handler error\n"
+                f"User ID: {locals().get('user_id', 'unknown')}\n"
+                f"Userbot: {userbot_index}\n"
                 f"Error: {type(error).__name__}: {error}",
                 userbots,
             )
@@ -190,19 +109,9 @@ def setup_all(userbots: list[TelegramClient]):
     if not userbots:
         logger.warning("No userbot accounts are configured.")
         return
-
     if not A_CHAT_ID:
-        logger.warning(
-            "A_CHAT_ID is empty. No group messages will be processed."
-        )
+        logger.warning("A_CHAT_ID is empty. No group messages will be processed.")
 
     for index, userbot in enumerate(userbots, start=1):
-        setup(
-            userbot,
-            userbots,
-            userbot_index=index,
-        )
-        logger.info(
-            "Userbot group-message handler loaded for account %d.",
-            index,
-        )
+        setup(userbot, userbots, userbot_index=index)
+        logger.info("Userbot group-message handler loaded for account %d.", index)
