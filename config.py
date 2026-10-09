@@ -33,8 +33,6 @@ USERBOT_SESSIONS = [
     os.getenv("USERBOT_SESSION_2", ""),
     os.getenv("USERBOT_SESSION_3", ""),
     os.getenv("USERBOT_SESSION_4", ""),
-    os.getenv("USERBOT_SESSION_5", ""),
-    os.getenv("USERBOT_SESSION_6", ""),
     
 ]
 
