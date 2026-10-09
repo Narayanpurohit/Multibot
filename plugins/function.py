@@ -352,6 +352,10 @@ async def process_permission_message(user_id: int, userbots: list) -> bool:
     """Queue and send one permission prompt using pending2/pending3."""
     user_id = int(user_id)
     async with _state_lock:
+        # A successful permission prompt is recorded in pending.json.
+        # Do not send it again if a duplicate was queued during cooldown.
+        if is_user_pending(user_id):
+            return False
         pending2 = _get_id_list(PENDING2_FILE)
         if user_id in pending2:
             _add_id(PENDING3_FILE, user_id)
@@ -373,8 +377,9 @@ async def process_permission_message(user_id: int, userbots: list) -> bool:
             pending3 = _get_id_list(PENDING3_FILE)
             next_user = pending3.pop(0) if pending3 else None
             save_json(PENDING3_FILE, pending3)
+            active_users = _get_id_list(PENDING2_FILE)
 
-        if next_user is not None:
+        if next_user is not None and next_user not in active_users:
             await process_permission_message(next_user, userbots)
 
     return success
